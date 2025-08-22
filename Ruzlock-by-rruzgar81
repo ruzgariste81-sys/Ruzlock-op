@@ -1,1 +1,484 @@
+-- // Part 1: GUI, Blur, Disclaimer, Prediction & Settings // --
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
+-- Global/state
+getgenv().RuzLockEnabled = false
+getgenv().CurrentTarget = nil
+getgenv().FOVEnabled = true
+getgenv().HighlightEnabled = true
+getgenv().LineEnabled = true
+
+local Prediction = 0.14881
+local Smoothness = 0.24
+local FOVSize = 150
+local AimlockVisible = false
+
+-- Color cycle setup
+local ColorCycle = {
+    Color3.fromRGB(255,0,0),   -- red
+    Color3.fromRGB(0,255,0),   -- green
+    Color3.fromRGB(0,0,255),   -- blue
+    Color3.fromRGB(255,255,0), -- yellow
+    Color3.fromRGB(255,255,255) -- white
+}
+local FOVColorIndex, HighlightColorIndex, LineColorIndex = 5, 5, 5
+local HighlightColor = ColorCycle[HighlightColorIndex]
+
+-- Disclaimer (10s) -> UI at 11s
+local Blur = Instance.new("BlurEffect", Camera)
+Blur.Size = 20
+Blur.Enabled = true
+
+local DisclaimerGui = Instance.new("ScreenGui", game.CoreGui)
+DisclaimerGui.Name = "DisclaimerGui"
+
+local DisclaimerFrame = Instance.new("Frame", DisclaimerGui)
+DisclaimerFrame.Size = UDim2.new(1,0,1,0)
+DisclaimerFrame.BackgroundTransparency = 1
+
+local Disclaimer = Instance.new("TextLabel", DisclaimerFrame)
+Disclaimer.Size = UDim2.new(0.6,0,0.2,0)
+Disclaimer.Position = UDim2.new(0.2,0,0.4,0)
+Disclaimer.BackgroundTransparency = 1
+Disclaimer.Text = "disclaimer: This lock works best on no delay games like dan hood and model hood and more.."
+Disclaimer.TextColor3 = Color3.fromRGB(255,0,0)
+Disclaimer.TextScaled = true
+Disclaimer.Font = Enum.Font.GothamBold
+Disclaimer.TextStrokeTransparency = 0
+Disclaimer.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+
+local Sound = Instance.new("Sound", Camera)
+Sound.SoundId = "rbxassetid://1848354536"
+Sound.Looped = true
+Sound:Play()
+
+task.delay(10, function()
+    local t1 = TweenService:Create(Blur, TweenInfo.new(1), {Size = 0})
+    local t2 = TweenService:Create(Disclaimer, TweenInfo.new(1), {TextTransparency = 1})
+    t1:Play(); t2:Play()
+    t1.Completed:Wait()
+    Blur.Enabled = false
+    DisclaimerGui:Destroy()
+    Sound:Stop()
+end)
+
+task.delay(11, function()
+    AimlockVisible = true
+end)
+
+-- Main GUI roots (başta gizli)
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "RuzLockGUI"
+ScreenGui.Enabled = false
+
+local PredGui = Instance.new("ScreenGui", game.CoreGui)
+PredGui.Name = "PredictionChanger"
+PredGui.Enabled = false
+
+local SmoothGui = Instance.new("ScreenGui", game.CoreGui)
+SmoothGui.Name = "SmoothnessChanger"
+SmoothGui.Enabled = false
+
+local SettingsGui = Instance.new("ScreenGui", game.CoreGui)
+SettingsGui.Name = "RuzSettings"
+SettingsGui.Enabled = false
+
+-- Toggle Button (DRAGGABLE)
+local Toggle = Instance.new("TextButton")
+Toggle.Size = UDim2.new(0,120,0,40)
+Toggle.Position = UDim2.new(0.05,0,0.2,0)
+Toggle.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Toggle.Text = "RuzLock: OFF"
+Toggle.TextColor3 = Color3.new(1,1,1)
+Toggle.Font = Enum.Font.GothamBold
+Toggle.TextScaled = true
+Toggle.AutoButtonColor = false
+Toggle.BackgroundTransparency = 0.1
+Toggle.BorderSizePixel = 0
+Toggle.Active = true
+Toggle.Draggable = true
+Toggle.Parent = ScreenGui
+Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,12)
+
+Toggle.MouseButton1Click:Connect(function()
+    if not AimlockVisible then return end
+    getgenv().RuzLockEnabled = not getgenv().RuzLockEnabled
+    Toggle.Text = "RuzLock: "..(getgenv().RuzLockEnabled and "ON" or "OFF")
+    Toggle.BackgroundColor3 = getgenv().RuzLockEnabled and Color3.fromRGB(0,200,0) or Color3.fromRGB(30,30,30)
+    if not getgenv().RuzLockEnabled then
+        getgenv().CurrentTarget = nil
+        -- highlight & line temizliği part 2'de de ele alınıyor
+    end
+end)
+
+-- Drawing FOV & Line
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Radius = FOVSize
+FOVCircle.Color = ColorCycle[FOVColorIndex]
+FOVCircle.Thickness = 1.5
+FOVCircle.Filled = false
+FOVCircle.NumSides = 100
+
+local Line = Drawing.new("Line")
+Line.Visible = false
+Line.Thickness = 2
+Line.Color = ColorCycle[LineColorIndex]
+
+-- Prediction GUI (Auto Set)
+local Frame = Instance.new("Frame", PredGui)
+Frame.Size = UDim2.new(0,220,0,40)
+Frame.Position = UDim2.new(0.5,-110,0,10)
+Frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Frame.Active = true
+Frame.Draggable = true
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,8)
+
+local TextBox = Instance.new("TextBox", Frame)
+TextBox.Size = UDim2.new(0.62,0,1,-10)
+TextBox.Position = UDim2.new(0,5,0,5)
+TextBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+TextBox.TextColor3 = Color3.new(1,1,1)
+TextBox.Font = Enum.Font.GothamBold
+TextBox.TextScaled = true
+TextBox.Text = "Prediction: "..tostring(Prediction)
+Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0,6)
+
+local AutoBtnPred = Instance.new("TextButton", Frame)
+AutoBtnPred.Size = UDim2.new(0.32,0,1,-10)
+AutoBtnPred.Position = UDim2.new(0.66,0,0,5)
+AutoBtnPred.BackgroundColor3 = Color3.fromRGB(50,50,50)
+AutoBtnPred.TextColor3 = Color3.new(1,1,1)
+AutoBtnPred.Text = "Auto Set"
+AutoBtnPred.Font = Enum.Font.GothamBold
+AutoBtnPred.TextScaled = true
+Instance.new("UICorner", AutoBtnPred).CornerRadius = UDim.new(0,6)
+
+TextBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local val = tonumber(TextBox.Text:match("[%d%.]+"))
+        if val then Prediction = val end
+        TextBox.Text = "Prediction: "..tostring(Prediction)
+    end
+end)
+AutoBtnPred.MouseButton1Click:Connect(function()
+    Prediction = 0.14811
+    TextBox.Text = "Prediction: "..tostring(Prediction)
+end)
+
+-- Smoothness GUI (Auto Set)
+local SmoothFrame = Instance.new("Frame", SmoothGui)
+SmoothFrame.Size = UDim2.new(0,220,0,40)
+SmoothFrame.Position = UDim2.new(0.5,-110,0,60)
+SmoothFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+SmoothFrame.Active = true
+SmoothFrame.Draggable = true
+Instance.new("UICorner", SmoothFrame).CornerRadius = UDim.new(0,8)
+
+local SmoothBox = Instance.new("TextBox", SmoothFrame)
+SmoothBox.Size = UDim2.new(0.62,0,1,-10)
+SmoothBox.Position = UDim2.new(0,5,0,5)
+SmoothBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+SmoothBox.TextColor3 = Color3.new(1,1,1)
+SmoothBox.Font = Enum.Font.GothamBold
+SmoothBox.TextScaled = true
+SmoothBox.Text = "Smoothness: "..tostring(Smoothness)
+Instance.new("UICorner", SmoothBox).CornerRadius = UDim.new(0,6)
+
+local AutoBtnSmooth = Instance.new("TextButton", SmoothFrame)
+AutoBtnSmooth.Size = UDim2.new(0.32,0,1,-10)
+AutoBtnSmooth.Position = UDim2.new(0.66,0,0,5)
+AutoBtnSmooth.BackgroundColor3 = Color3.fromRGB(50,50,50)
+AutoBtnSmooth.TextColor3 = Color3.new(1,1,1)
+AutoBtnSmooth.Text = "Auto Set"
+AutoBtnSmooth.Font = Enum.Font.GothamBold
+AutoBtnSmooth.TextScaled = true
+Instance.new("UICorner", AutoBtnSmooth).CornerRadius = UDim.new(0,6)
+
+SmoothBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local val = tonumber(SmoothBox.Text:match("[%d%.]+"))
+        if val then Smoothness = val end
+        SmoothBox.Text = "Smoothness: "..tostring(Smoothness)
+    end
+end)
+AutoBtnSmooth.MouseButton1Click:Connect(function()
+    Smoothness = 1
+    SmoothBox.Text = "Smoothness: "..tostring(Smoothness)
+end)
+
+-- Settings (⚙️) + Scrollable Panel + Toggles + Color Cyclers
+local SettingsBtn = Instance.new("TextButton", SettingsGui)
+SettingsBtn.Size = UDim2.new(0,40,0,40)
+SettingsBtn.Position = UDim2.new(1,-50,0,10)
+SettingsBtn.Text = "⚙️"
+SettingsBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+SettingsBtn.TextSize = 20
+SettingsBtn.TextColor3 = Color3.new(1,1,1)
+SettingsBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", SettingsBtn).CornerRadius = UDim.new(0,10)
+
+local Panel = Instance.new("ScrollingFrame", SettingsGui)
+Panel.Size = UDim2.new(0,200,0,210)
+Panel.Position = UDim2.new(1,-210,0,60)
+Panel.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Panel.ScrollBarThickness = 5
+Panel.Visible = false
+Instance.new("UICorner", Panel).CornerRadius = UDim.new(0,12)
+
+local UIList = Instance.new("UIListLayout", Panel)
+UIList.Padding = UDim.new(0,6)
+UIList.FillDirection = Enum.FillDirection.Vertical
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+
+local UIPad = Instance.new("UIPadding", Panel)
+UIPad.PaddingTop = UDim.new(0,8); UIPad.PaddingBottom = UDim.new(0,8)
+UIPad.PaddingLeft = UDim.new(0,8); UIPad.PaddingRight = UDim.new(0,8)
+
+UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Panel.CanvasSize = UDim2.new(0,0,0, UIList.AbsoluteContentSize.Y + 16)
+end)
+
+local function addToggle(label, defaultState, onChange)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -0, 0, 36)
+    btn.BackgroundColor3 = defaultState and Color3.fromRGB(0,200,0) or Color3.fromRGB(200,0,0)
+    btn.Text = label..": "..(defaultState and "ON" or "OFF")
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+    btn.Parent = Panel
+
+    btn.MouseButton1Click:Connect(function()
+        defaultState = not defaultState
+        btn.Text = label..": "..(defaultState and "ON" or "OFF")
+        btn.BackgroundColor3 = defaultState and Color3.fromRGB(0,200,0) or Color3.fromRGB(200,0,0)
+        onChange(defaultState)
+    end)
+    return btn
+end
+
+local function addColorCycler(label, startIndex, onColor)
+    local idx = startIndex
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -0, 0, 36)
+    btn.BackgroundColor3 = ColorCycle[idx]
+    btn.Text = label.." Color"
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+    btn.Parent = Panel
+
+    btn.MouseButton1Click:Connect(function()
+        idx = idx + 1
+        if idx > #ColorCycle then idx = 1 end
+        btn.BackgroundColor3 = ColorCycle[idx]
+        onColor(ColorCycle[idx], idx)
+    end)
+    return btn
+end
+
+-- Toggles (default ON)
+addToggle("FOV", true, function(state)
+    getgenv().FOVEnabled = state
+end)
+
+addToggle("Highlight", true, function(state)
+    getgenv().HighlightEnabled = state
+    if not state then
+        -- hepsini temizle (Part 2'de clearAllHighlights fonksiyonu var; şimdilik basit temizleme)
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr.Character then
+                for _,h in ipairs(plr.Character:GetChildren()) do
+                    if h:IsA("Highlight") then h:Destroy() end
+                end
+            end
+        end
+    end
+end)
+
+addToggle("ESP Line", true, function(state)
+    getgenv().LineEnabled = state
+end)
+
+-- Color cyclers
+addColorCycler("FOV", FOVColorIndex, function(c, i)
+    FOVColorIndex = i
+    FOVCircle.Color = c
+end)
+
+addColorCycler("Highlight", HighlightColorIndex, function(c, i)
+    HighlightColorIndex = i
+    HighlightColor = c
+    -- mevcut hedef varsa rengini güncelle
+    local t = getgenv().CurrentTarget
+    if t and t.Character then
+        local h = t.Character:FindFirstChildOfClass("Highlight")
+        if h then
+            h.FillColor = c
+            h.OutlineColor = c
+        end
+    end
+end)
+
+addColorCycler("Line", LineColorIndex, function(c, i)
+    LineColorIndex = i
+    Line.Color = c
+end)
+
+SettingsBtn.MouseButton1Click:Connect(function()
+    Panel.Visible = not Panel.Visible
+end)
+
+-- UI'leri 11. saniyede aç
+task.spawn(function()
+    while not AimlockVisible do task.wait() end
+    ScreenGui.Enabled = true
+    PredGui.Enabled = true
+    SmoothGui.Enabled = true
+    SettingsGui.Enabled = true
+end)
+-- // Part 2: Render Loop, Target, Highlight & ESP // --
+
+-- yardımcılar
+local function clearHighlightOf(plr)
+    if not plr or not plr.Character then return end
+    for _,h in ipairs(plr.Character:GetChildren()) do
+        if h:IsA("Highlight") then h:Destroy() end
+    end
+end
+
+local function clearAllHighlights()
+    for _,plr in ipairs(Players:GetPlayers()) do
+        clearHighlightOf(plr)
+    end
+end
+
+local function applyHighlight(plr, color)
+    if not getgenv().HighlightEnabled then return end
+    if not plr or not plr.Character then return end
+    -- eski highlightları temizle, tek bir highlight kalsın
+    clearHighlightOf(plr)
+    local h = Instance.new("Highlight")
+    h.FillTransparency = 0.5
+    h.OutlineTransparency = 0
+    h.FillColor = color or Color3.fromRGB(255,255,255)
+    h.OutlineColor = color or Color3.fromRGB(255,255,255)
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Adornee = plr.Character
+    h.Parent = plr.Character
+end
+
+local function getNearest()
+    local nearest, dist = nil, math.huge
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local root = plr.Character.HumanoidRootPart
+            local pos, vis = Camera:WorldToViewportPoint(root.Position)
+            if vis then
+                local mag = (Vector2.new(pos.X,pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if mag < dist and mag <= 150 then
+                    dist = mag
+                    nearest = plr
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local lastTarget = nil
+
+RunService.RenderStepped:Connect(function()
+    if not AimlockVisible then
+        if FOVCircle then FOVCircle.Visible = false end
+        if Line then Line.Visible = false end
+        return
+    end
+
+    -- FOV daire güncelle
+    if getgenv().FOVEnabled then
+        FOVCircle.Visible = true
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    else
+        FOVCircle.Visible = false
+    end
+
+    -- hedef güncelle
+    if getgenv().RuzLockEnabled then
+        if (not getgenv().CurrentTarget)
+           or (not getgenv().CurrentTarget.Character)
+           or (not getgenv().CurrentTarget.Character:FindFirstChild("HumanoidRootPart"))
+           or (getgenv().CurrentTarget.Character:FindFirstChildOfClass("Humanoid") and getgenv().CurrentTarget.Character:FindFirstChildOfClass("Humanoid").Health <= 0) then
+            getgenv().CurrentTarget = getNearest()
+        end
+    else
+        -- kilit kapandıysa temizlik
+        if lastTarget then clearHighlightOf(lastTarget) end
+        getgenv().CurrentTarget = nil
+    end
+
+    local target = getgenv().CurrentTarget
+
+    -- hedef değiştiyse highlight aktar
+    if target ~= lastTarget then
+        if lastTarget then clearHighlightOf(lastTarget) end
+        if target and getgenv().HighlightEnabled then
+            applyHighlight(target, HighlightColor)
+        end
+        lastTarget = target
+    end
+
+    -- Aimlock / Cam yönlendirme & ESP Line
+    if getgenv().RuzLockEnabled and target and target.Character then
+        local root = target.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            local targetPos = root.Position + (root.Velocity * Prediction)
+            local camPos = Camera.CFrame.Position
+            local goal = CFrame.new(camPos, targetPos)
+            Camera.CFrame = Camera.CFrame:Lerp(goal, Smoothness)
+
+            -- highlight güncel tut (renk değişmişse)
+            if getgenv().HighlightEnabled then
+                local h = target.Character:FindFirstChildOfClass("Highlight")
+                if h then
+                    h.FillColor = HighlightColor
+                    h.OutlineColor = HighlightColor
+                else
+                    applyHighlight(target, HighlightColor)
+                end
+            end
+
+            -- Line ESP
+            if getgenv().LineEnabled then
+                local screenPos, vis = Camera:WorldToViewportPoint(root.Position)
+                if vis then
+                    Line.Visible = true
+                    Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                    Line.To = Vector2.new(screenPos.X, screenPos.Y)
+                else
+                    Line.Visible = false
+                end
+            else
+                Line.Visible = false
+            end
+        else
+            Line.Visible = false
+        end
+    else
+        Line.Visible = false
+    end
+end)
+
+-- Highlight toggle OFF olduğunda herkesten kaldır (Panel fonksiyonunda da çağrılıyor)
+Players.PlayerRemoving:Connect(function(plr)
+    if lastTarget == plr then lastTarget = nil end
+end)
