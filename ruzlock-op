@@ -1,0 +1,118 @@
+-- [[ PART 1 ]] --
+local _A,_B,_C=game:GetService("Players"),game:GetService("RunService"),game:GetService("TweenService")
+local _D=workspace.CurrentCamera;local _E=_A.LocalPlayer;
+getgenv().XxXaaaXXx=false;getgenv().XXTarget=nil;
+local __pred=0.14881;local __smooth=0.24;local __fov=150;local __visible=false;
+
+local ZzZ=Instance.new("BlurEffect",_D)ZzZ.Size=20;ZzZ.Enabled=true;
+local GgG=Instance.new("ScreenGui",game.CoreGui)GgG.Name="xXDisclaimerXx"
+local HhH=Instance.new("Frame",GgG)HhH.Size=UDim2.new(1,0,1,0)HhH.BackgroundTransparency=1
+local IiI=Instance.new("TextLabel",HhH)IiI.Size=UDim2.new(0.6,0,0.2,0)IiI.Position=UDim2.new(0.2,0,0.4,0)
+IiI.BackgroundTransparency=1;IiI.Text="disclaimer: works best on no delay games"
+IiI.TextColor3=Color3.fromRGB(255,0,0)IiI.TextScaled=true;IiI.Font=Enum.Font.GothamBold
+IiI.TextStrokeTransparency=0;IiI.TextStrokeColor3=Color3.fromRGB(0,0,0)
+local JjJ=Instance.new("ImageLabel",HhH)JjJ.Size=UDim2.new(0.3,0,0.3,0)JjJ.Position=UDim2.new(0.35,0,0.1,0)
+JjJ.BackgroundTransparency=1;JjJ.Image="rbxassetid://-11176073582"
+local KkK=Instance.new("Sound",_D)KkK.SoundId="rbxassetid://1848354536"KkK.Looped=true;KkK:Play()
+
+delay(10,function()
+	local t1=_C:Create(ZzZ,TweenInfo.new(1),{Size=0})
+	local t2=_C:Create(IiI,TweenInfo.new(1),{TextTransparency=1})
+	local t3=_C:Create(JjJ,TweenInfo.new(1),{ImageTransparency=1})
+	t1:Play()t2:Play()t3:Play()t1.Completed:Wait()
+	ZzZ.Enabled=false;GgG:Destroy();KkK:Stop();__visible=true
+end)
+
+local M=Instance.new("ScreenGui",game.CoreGui)M.Name="GxMain"M.Enabled=false
+local Btn=Instance.new("TextButton")Btn.Parent=M Btn.Size=UDim2.new(0,120,0,40)
+Btn.Position=UDim2.new(0.05,0,0.2,0)Btn.Text="RuzLock: OFF"Btn.TextColor3=Color3.new(1,1,1)
+Btn.BackgroundColor3=Color3.fromRGB(30,30,30)Btn.Font=Enum.Font.GothamBold Btn.TextScaled=true
+local Cr=Instance.new("UICorner",Btn)Cr.CornerRadius=UDim.new(0,12)
+
+local Circ=Drawing.new("Circle")Circ.Visible=false Circ.Radius=__fov Circ.Color=Color3.fromRGB(255,255,255)
+Circ.Thickness=1.5 Circ.Filled=false Circ.NumSides=100
+local Ln=Drawing.new("Line")Ln.Visible=false Ln.Thickness=2 Ln.Color=Color3.fromRGB(255,255,255)
+
+local function _highlight(p)
+	for _,v in pairs(p.Character:GetChildren())do if v:IsA("Highlight")then v:Destroy()end end
+	local h=Instance.new("Highlight")h.FillTransparency=0.7;h.FillColor=Color3.fromRGB(255,255,255)
+	h.OutlineColor=Color3.fromRGB(255,255,255)h.OutlineTransparency=0;h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+	h.Parent=p.Character
+end
+
+local function _closest()
+	local c=nil;local d=1e9
+	for _,plr in pairs(_A:GetPlayers())do
+		if plr~= _E and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid").Health>0 then
+			local ps,on=_D:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
+			if on then
+				local mag=(Vector2.new(ps.X,ps.Y)-Vector2.new(_D.ViewportSize.X/2,_D.ViewportSize.Y/2)).Magnitude
+				if mag<__fov and mag<d then c=plr d=mag end
+			end
+		end
+	end
+	return c
+end
+
+Btn.MouseButton1Click:Connect(function()
+	if not __visible then return end
+	getgenv().XxXaaaXXx=not getgenv().XxXaaaXXx
+	Btn.Text="RuzLock: "..(getgenv().XxXaaaXXx and "ON" or "OFF")
+	Btn.BackgroundColor3=getgenv().XxXaaaXXx and Color3.fromRGB(0,200,0) or Color3.fromRGB(30,30,30)
+	if not getgenv().XxXaaaXXx then getgenv().XXTarget=nil Ln.Visible=false
+		for _,p in pairs(_A:GetPlayers())do if p.Character and p.Character:FindFirstChild("Highlight")then p.Character.Highlight:Destroy()end end
+	end
+end)
+
+local PG=Instance.new("ScreenGui",game.CoreGui)PG.Name="PredX"PG.Enabled=false
+local F=Instance.new("Frame",PG)F.Size=UDim2.new(0,200,0,40)F.Position=UDim2.new(0.5,-100,0,10)
+F.BackgroundColor3=Color3.fromRGB(25,25,25)F.Active=true F.Draggable=true
+local Bx=Instance.new("TextBox",F)Bx.Size=UDim2.new(0.65,0,1,-10)Bx.Position=UDim2.new(0,5,0,5)
+Bx.BackgroundColor3=Color3.fromRGB(40,40,40)Bx.TextColor3=Color3.new(1,1,1)Bx.Font=Enum.Font.GothamBold
+Bx.TextScaled=true Bx.Text="Prediction: "..tostring(__pred)
+Bx.FocusLost:Connect(function(e)if e then local v=tonumber(Bx.Text:match("[%d%.]+"))if v then __pred=v end Bx.Text="Prediction: "..tostring(__pred)end end)
+local Bp=Instance.new("TextButton",F)Bp.Size=UDim2.new(0.3,0,1,-10)Bp.Position=UDim2.new(0.67,0,0,5)
+Bp.BackgroundColor3=Color3.fromRGB(50,50,50)Bp.TextColor3=Color3.new(1,1,1)Bp.Text="Auto Set"Bp.Font=Enum.Font.GothamBold
+Bp.TextScaled=true Bp.MouseButton1Click:Connect(function()__pred=0.14811 Bx.Text="Prediction: "..tostring(__pred)end)
+
+local SG=Instance.new("ScreenGui",game.CoreGui)SG.Name="SmoothX"SG.Enabled=false
+local SF=Instance.new("Frame",SG)SF.Size=UDim2.new(0,200,0,40)SF.Position=UDim2.new(0.5,-100,0,60)
+SF.BackgroundColor3=Color3.fromRGB(25,25,25)SF.Active=true SF.Draggable=true
+local SBox=Instance.new("TextBox",SF)SBox.Size=UDim2.new(0.65,0,1,-10)SBox.Position=UDim2.new(0,5,0,5)
+SBox.BackgroundColor3=Color3.fromRGB(40,40,40)SBox.TextColor3=Color3.new(1,1,1)SBox.Font=Enum.Font.GothamBold
+SBox.TextScaled=true SBox.Text="Smoothness: "..tostring(__smooth)
+SBox.FocusLost:Connect(function(e)if e then local v=tonumber(SBox.Text:match("[%d%.]+"))if v then __smooth=v end SBox.Text="Smoothness: "..tostring(__smooth)end end)
+local SBt=Instance.new("TextButton",SF)SBt.Size=UDim2.new(0.3,0,1,-10)SBt.Position=UDim2.new(0.67,0,0,5)
+SBt.BackgroundColor3=Color3.fromRGB(50,50,50)SBt.TextColor3=Color3.new(1,1,1)SBt.Text="Auto Set"SBt.Font=Enum.Font.GothamBold
+SBt.TextScaled=true SBt.MouseButton1Click:Connect(function()__smooth=1 SBox.Text="Smoothness: "..tostring(__smooth)end)
+
+spawn(function()while not __visible do wait()end M.Enabled=true PG.Enabled=true SG.Enabled=true end)
+
+getgenv().__vars={Circ= Circ,Line= Ln,Pred=function()return __pred end,Smooth=function()return __smooth end,Closest=_closest,High=_highlight,Vis=function()return __visible end,Btn=Btn,Camera=_D}
+
+-- [[ PART 2 ]] --
+local V=getgenv().__vars
+game:GetService("RunService").RenderStepped:Connect(function()
+	if not V.Vis() then V.Circ.Visible=false V.Line.Visible=false return end
+	V.Circ.Visible=true V.Circ.Position=Vector2.new(V.Camera.ViewportSize.X/2,V.Camera.ViewportSize.Y/2)
+	if getgenv().XxXaaaXXx then
+		if not getgenv().XXTarget or not getgenv().XXTarget.Character or getgenv().XXTarget.Character:FindFirstChild("Humanoid").Health<=0 then
+			getgenv().XXTarget=V.Closest()
+		end
+		local T=getgenv().XXTarget
+		if T and T.Character then
+			local R=T.Character:FindFirstChild("HumanoidRootPart")
+			if R then
+				local pos,_=V.Camera:WorldToViewportPoint(R.Position)
+				V.Line.Visible=true V.Line.From=Vector2.new(V.Camera.ViewportSize.X/2,V.Camera.ViewportSize.Y/2) V.Line.To=Vector2.new(pos.X,pos.Y)
+				V.High(T)
+			else V.Line.Visible=false end
+		else V.Line.Visible=false end
+	end
+	if getgenv().XxXaaaXXx and getgenv().XXTarget and getgenv().XXTarget.Character then
+		local T=getgenv().XXTarget local R=T.Character:FindFirstChild("HumanoidRootPart")
+		if R then local vel=R.Velocity*V.Pred() local targetPos=R.Position+vel local newCf=CFrame.new(V.Camera.CFrame.Position,targetPos)
+			V.Camera.CFrame=V.Camera.CFrame:Lerp(newCf,V.Smooth())
+		end
+	end
+end)
